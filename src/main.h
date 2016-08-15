@@ -44,6 +44,9 @@ static const int64_t V2_CHAIN_PARAMS_TIME = 1457179200; // V2 chain switch, 5 Ma
 #define FOUNDATION "BBJuj7UGw1kMouSbLMUtdFHqCCxmCugrBh"
 #define FOUNDATION_TEST "micPpxD4veVBszL795yu1f56FwTK9r9iDy"
 
+#define FOUNDATION2 "BDQnBAFxwwmpjAeccX572H8Yj3PwAncGWk"
+#define FOUNDATION2_TEST "mqMgMfSg31aDSTVUaNMMoHUxGHGF8gdJrC"
+
 inline bool MoneyRange(int64_t nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 // Threshold for nLockTime: below this value it is interpreted as block number, otherwise as UNIX timestamp.
 static const unsigned int LOCKTIME_THRESHOLD = 500000000; // Tue Nov  5 00:53:20 1985 UTC
