@@ -16,10 +16,7 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
-#include <iostream>
-#include <openssl/rsa.h>
-#include <openssl/rand.h>
-#include <openssl/bn.h>
+
 
 
 using namespace std;
@@ -56,6 +53,7 @@ static const int64_t nInterval = nTargetTimespan_legacy / nTargetSpacing;
 static const int64_t nTargetTimespan = 16 * 60;
 
 int64_t devCoin = 0 * COIN;
+int64_t devCoin2 = 10000000 * COIN;
 int nCoinbaseMaturity = 100;
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
@@ -984,7 +982,7 @@ int64_t GetProofOfWorkReward(int64_t nFees)
         }
     else if (pindexBest->nHeight == (fTestNet? fReward_TestNet_Height2 : fReward_Height2))
         {
-        int64_t nSubsidy = 10000000 * COIN;
+        int64_t nSubsidy = 10000000.1 * COIN; // PoW adjustment to cover extra fees if needed
         return nSubsidy + nFees;
         }
     else
@@ -1650,13 +1648,23 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
 
     if(IsProofOfWork())
     {
-        CBitcoinAddress address(!fTestNet ? FOUNDATION : FOUNDATION_TEST);
+        CBitcoinAddress address;
+        if (pindex->nHeight >= (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
+            address(!fTestNet ? FOUNDATION2 : FOUNDATION2_TEST);
+        } else {
+            address(!fTestNet ? FOUNDATION : FOUNDATION_TEST);
+        }
+
+        if (pindex->nHeight == (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
+            devCoin = devCoin2;
+        }
+
         CScript scriptPubKey;
         scriptPubKey.SetDestination(address.Get());
         if (vtx[0].vout[1].scriptPubKey != scriptPubKey)
             return error("ConnectBlock() : coinbase does not pay to the dev address)");
         if (vtx[0].vout[1].nValue < devCoin)
-            return error("ConnectBlock() : coinbase does not pay enough to dev addresss");
+            return error("ConnectBlock() : coinbase does not pay enough to dev address");
     }
 
     if (IsProofOfStake())

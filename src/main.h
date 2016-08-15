@@ -77,6 +77,7 @@ inline int64_t FutureDrift(int64_t nTime) {
 }
 
 extern int64_t devCoin;
+extern int64_t devCoin2;
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern std::map<uint256, CBlockIndex*> mapBlockIndex;

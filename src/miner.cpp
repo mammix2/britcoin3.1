@@ -362,6 +362,10 @@ CBlock* CreateNewBlock(CWallet* pwallet, bool fProofOfStake, int64_t* pFees)
 
         if (!fProofOfStake)
         {
+            if (pindex->nHeight == (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
+                devCoin = devCoin2;
+            }
+
             pblock->vtx[0].vout[0].nValue = GetProofOfWorkReward(nFees) - devCoin;
             pblock->vtx[0].vout[1].nValue = devCoin;
         }
