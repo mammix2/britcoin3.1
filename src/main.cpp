@@ -52,8 +52,7 @@ static const int64_t nInterval = nTargetTimespan_legacy / nTargetSpacing;
 
 static const int64_t nTargetTimespan = 16 * 60;
 
-int64_t devCoin = 0 * COIN;
-int64_t devCoin2 = 10000000 * COIN;
+int64_t devCoin;
 int nCoinbaseMaturity = 100;
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
@@ -1649,7 +1648,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
     if(IsProofOfWork())
     {
         CScript scriptPubKey;
-        if (pindex->nHeight >= (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
+        if (pindexBest->nHeight-1 >= (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
             CBitcoinAddress address(!fTestNet ? FOUNDATION2 : FOUNDATION2_TEST);
             scriptPubKey.SetDestination(address.Get());
         } else {
@@ -1657,9 +1656,11 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
             scriptPubKey.SetDestination(address.Get());
         }
 
-        if (pindex->nHeight == (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
-            devCoin = devCoin2;
-        }
+        if (pindexBest->nHeight == (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
+            devCoin = 10000000 * COIN;
+        } else {
+            devCoin = 0 * COIN;
+		}
 
         if (vtx[0].vout[1].scriptPubKey != scriptPubKey)
             return error("ConnectBlock() : coinbase does not pay to the dev address)");
