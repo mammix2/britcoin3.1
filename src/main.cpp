@@ -1648,7 +1648,7 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
     if(IsProofOfWork())
     {
         CScript scriptPubKey;
-        if (pindexBest->nHeight-1 >= (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
+        if (pindexBest->nHeight >= (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
             CBitcoinAddress address(!fTestNet ? FOUNDATION2 : FOUNDATION2_TEST);
             scriptPubKey.SetDestination(address.Get());
         } else {
