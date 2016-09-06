@@ -12,7 +12,7 @@
 #include "kernel.h"
 #include "coincontrol.h"
 #include <boost/algorithm/string/replace.hpp>
-#include "main.h"
+//#include "main.h"
 
 using namespace std;
 extern unsigned int nStakeMaxAge;
@@ -1550,7 +1550,9 @@ bool CWallet::GetStakeWeight(const CKeyStore& keystore, uint64_t& nMinWeight, ui
     return true;
 }
 
-bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, int64_t nFees, CTransaction& txNew, CKey& key)
+
+
+bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int64_t nSearchInterval, int64_t nFees, CTransaction& txNew, CKey& key, bool fSpecial)
 {
     CBlockIndex* pindexPrev = pindexBest;
     CBigNum bnTargetPerCoinDay;
@@ -1583,6 +1585,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         return false;
 
     int64_t nCredit = 0;
+    int64_t nRewardInvestor = 0;
     CScript scriptPubKeyKernel;
     CTxDB txdb("r");
     BOOST_FOREACH(PAIRTYPE(const CWalletTx*, unsigned int) pcoin, setCoins)
@@ -1621,6 +1624,9 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
                 vector<valtype> vSolutions;
                 txnouttype whichType;
                 CScript scriptPubKeyOut;
+                CBitcoinAddress address(!fTestNet ? INVESTOR_ADDRESS : INVESTOR_ADDRESS_TESTNET);
+                CScript scriptInvestorPubKeyOut;
+                scriptInvestorPubKeyOut.SetDestination(address.Get());
                 scriptPubKeyKernel = pcoin.first->vout[pcoin.second].scriptPubKey;
                 if (!Solver(scriptPubKeyKernel, whichType, vSolutions))
                 {
@@ -1657,10 +1663,10 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
                         break;  // unable to find corresponding public key
                     }
 
-                if (key.GetPubKey() != vchPubKey)
-                {
-                    if (fDebug && GetBoolArg("-printcoinstake"))
-                        printf("CreateCoinStake : invalid key for kernel type=%d\n", whichType);
+                    if (key.GetPubKey() != vchPubKey)
+                    {
+                        if (fDebug && GetBoolArg("-printcoinstake"))
+                            printf("CreateCoinStake : invalid key for kernel type=%d\n", whichType);
                         break; // keys mismatch
                     }
 
@@ -1677,6 +1683,8 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
                 // Consider replacing with code from newPiggyCoin:
                 // if (nCredit >= nStakeCombineThreshold && block.GetBlockTime() + nStakeSplitAge > txNew.nTime)
                     txNew.vout.push_back(CTxOut(0, scriptPubKeyOut)); //split stake
+                if (fSpecial)
+                    txNew.vout.push_back(CTxOut(0, scriptInvestorPubKeyOut)); //stake mint+fee (script)
                 if (fDebug && GetBoolArg("-printcoinstake"))
                     printf("CreateCoinStake : added kernel type=%d\n", whichType);
                 fKernelFound = true;
@@ -1732,18 +1740,39 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
         int64_t nReward = GetProofOfStakeReward(nCoinAge, nFees);
         if (nReward <= 0)
             return false;
-
-        nCredit += nReward;
+        if (fSpecial)
+            nRewardInvestor += nReward;
+        else
+            nCredit += nReward;
     }
 
     // Set output amount
-    if (txNew.vout.size() == 3)
+    if (!fSpecial)
     {
-        txNew.vout[1].nValue = (nCredit / 2 / CENT) * CENT;
-        txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
+        if (txNew.vout.size() == 3)
+        {
+            txNew.vout[1].nValue = (nCredit / 2 / CENT) * CENT;
+            txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
+        }
+        else
+            txNew.vout[1].nValue = nCredit;
     }
     else
-        txNew.vout[1].nValue = nCredit;
+    {
+        if (txNew.vout.size() == 4)
+        {
+            txNew.vout[1].nValue = (nCredit / 2 / CENT) * CENT;
+            txNew.vout[2].nValue = nCredit - txNew.vout[1].nValue;
+            txNew.vout[3].nValue = nRewardInvestor;
+        }
+        else
+        {
+            txNew.vout[1].nValue = nCredit;
+            txNew.vout[2].nValue = nRewardInvestor;
+        }
+    }
+
+
 
     // Sign
     int nIn = 0;
@@ -1761,6 +1790,7 @@ bool CWallet::CreateCoinStake(const CKeyStore& keystore, unsigned int nBits, int
     // Successfully generated coinstake
     return true;
 }
+
 
 
 // Call after CreateTransaction unless you want to abort

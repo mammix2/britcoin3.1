@@ -788,10 +788,14 @@ const char *
 safe_str_client(const char *address)
 {
   tor_assert(address);
+  return address;
+  
+  /* TODO: Reinsert this code later -- Mo
   if (get_options()->SafeLogging_ == SAFELOG_SCRUB_ALL)
     return "[scrubbed]";
   else
     return address;
+  */
 }
 
 /** Make <b>address</b> -- a piece of information of unspecified sensitivity
@@ -805,10 +809,14 @@ const char *
 safe_str(const char *address)
 {
   tor_assert(address);
+  return address;
+  
+  /* TODO: Reinsert this code later -- Mo
   if (get_options()->SafeLogging_ != SAFELOG_SCRUB_NONE)
     return "[scrubbed]";
   else
     return address;
+  */
 }
 
 /** Equivalent to escaped(safe_str_client(address)).  See reentrancy note on
@@ -817,10 +825,14 @@ safe_str(const char *address)
 const char *
 escaped_safe_str_client(const char *address)
 {
+  return escaped(address);
+  
+  /* TODO: Reinsert this code later -- Mo  
   if (get_options()->SafeLogging_ == SAFELOG_SCRUB_ALL)
     return "[scrubbed]";
   else
     return escaped(address);
+  */
 }
 
 /** Equivalent to escaped(safe_str(address)).  See reentrancy note on
@@ -829,10 +841,13 @@ escaped_safe_str_client(const char *address)
 const char *
 escaped_safe_str(const char *address)
 {
+  return escaped(address);
+  /* TODO: Reinsert this code later -- Mo
   if (get_options()->SafeLogging_ != SAFELOG_SCRUB_NONE)
     return "[scrubbed]";
   else
     return escaped(address);
+  */
 }
 
 /** Add the default directory authorities directly into the trusted dir list,

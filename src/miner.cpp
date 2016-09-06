@@ -7,7 +7,7 @@
 #include "txdb.h"
 #include "miner.h"
 #include "kernel.h"
-#include "pow_control.h"
+//#include "pow_control.h"
 
 using namespace std;
 
@@ -121,14 +121,13 @@ CBlock* CreateNewBlock(CWallet* pwallet, bool fProofOfStake, int64_t* pFees)
     CTransaction txNew;
     txNew.vin.resize(1);
     txNew.vin[0].prevout.SetNull();
-    CBitcoinAddress address(!fTestNet ? FOUNDATION : FOUNDATION_TEST);
     txNew.vout.resize(2);
 
     if (!fProofOfStake)
     {
         CReserveKey reservekey(pwallet);
         txNew.vout[0].scriptPubKey.SetDestination(reservekey.GetReservedKey().GetID());
-        txNew.vout[1].scriptPubKey.SetDestination(address.Get()); // greenmo000 to do: ask mammix2 why this is here
+        txNew.vout[1].SetEmpty();
     }
     else
     {
@@ -360,16 +359,13 @@ CBlock* CreateNewBlock(CWallet* pwallet, bool fProofOfStake, int64_t* pFees)
         if (fDebug && GetBoolArg("-printpriority"))
             printf("CreateNewBlock(): total size %"PRIu64"\n", nBlockSize);
 
+        /*  commenting this out to see if it'll work without this -- Mo -- NOFOUNDATIONTEST
         if (!fProofOfStake)
         {
-            if (pindexBest->nHeight == (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
-                devCoin = 10000000 * COIN;
-            } else {
-                devCoin = 0 * COIN;
-			}
             pblock->vtx[0].vout[0].nValue = GetProofOfWorkReward(nFees) - devCoin;
             pblock->vtx[0].vout[1].nValue = devCoin;
         }
+        */
 
         if (pFees)
             *pFees = nFees;

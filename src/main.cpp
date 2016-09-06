@@ -11,7 +11,7 @@
 #include "init.h"
 #include "ui_interface.h"
 #include "kernel.h"
-#include "pow_control.h"
+//#include "pow_control.h"
 #include "checkblocks.h"
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/filesystem.hpp>
@@ -52,7 +52,7 @@ static const int64_t nInterval = nTargetTimespan_legacy / nTargetSpacing;
 
 static const int64_t nTargetTimespan = 16 * 60;
 
-int64_t devCoin;
+int64_t devCoin = 0 * COIN;
 int nCoinbaseMaturity = 100;
 CBlockIndex* pindexGenesisBlock = NULL;
 int nBestHeight = -1;
@@ -974,33 +974,40 @@ uint256 WantedByOrphan(const CBlock* pblockOrphan)
 // miner's coin base reward
 int64_t GetProofOfWorkReward(int64_t nFees)
 {
-    if (pindexBest->nHeight == (fTestNet? fReward_TestNet_Height1 : fReward_Height1))
-        {
+    if (pindexBest->nHeight == 1)
+    {
         int64_t nSubsidy = 200000 * COIN;
+        if (fDebug && GetBoolArg("-printcreation"))
+        printf("GetProofOfWorkReward() : create=%s nSubsidy=%"PRId64"\n", FormatMoney(nSubsidy).c_str(), nSubsidy);
         return nSubsidy + nFees;
-        }
-    else if (pindexBest->nHeight == (fTestNet? fReward_TestNet_Height2 : fReward_Height2))
-        {
-        int64_t nSubsidy = 10000000.1 * COIN; // PoW adjustment to cover extra fees if needed
-        return nSubsidy + nFees;
-        }
+    }
     else
-        {
+    {
         int64_t nSubsidy = 1000 * COIN;
+        if (fDebug && GetBoolArg("-printcreation"))
+        printf("GetProofOfWorkReward() : create=%s nSubsidy=%"PRId64"\n", FormatMoney(nSubsidy).c_str(), nSubsidy);
         return nSubsidy + nFees;
-        }
+    }
 }
+
+const int DAILY_BLOCKCOUNT =  1440;
 
 // miner's coin stake reward based on coin age spent (coin-days)
 int64_t GetProofOfStakeReward(int64_t nCoinAge, int64_t nFees)
 {
-    int64_t nSubsidy;
+    int64_t nRewardCoinYear;
+    int64_t nSubsidy = 0;
+    bool fSpecial = false;
 
-    if(pindexBest->nHeight < LAST_OLD_POS_BLOCK) {
-        nSubsidy = nCoinAge * POS_STAKE_REWARD / 365 / COIN; // original PoS reward
-    } else {
-        nSubsidy = nCoinAge * POS_STAKE_REWARD / 365; // PoS reward on V2 chain
-    }
+    nRewardCoinYear = MAX_MINT_PROOF_OF_STAKE;
+
+    if (pindexBest->nHeight == INVESTOR_COIN_MINT_HEIGHT)
+        nSubsidy = INVESTOR_REWARD;  
+    else
+        nSubsidy = nCoinAge * nRewardCoinYear / 365 / COIN;        
+
+    if (fDebug && GetBoolArg("-printcreation"))
+        printf("GetProofOfStakeReward(): create=%s nCoinAge=%"PRId64"\n", FormatMoney(nSubsidy).c_str(), nCoinAge);
 
     return nSubsidy + nFees;
 }
@@ -1645,29 +1652,6 @@ bool CBlock::ConnectBlock(CTxDB& txdb, CBlockIndex* pindex, bool fJustCheck)
                    nReward));
     }
 
-    if(IsProofOfWork())
-    {
-        CScript scriptPubKey;
-        if (pindexBest->nHeight >= (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
-            CBitcoinAddress address(!fTestNet ? FOUNDATION2 : FOUNDATION2_TEST);
-            scriptPubKey.SetDestination(address.Get());
-        } else {
-            CBitcoinAddress address(!fTestNet ? FOUNDATION : FOUNDATION_TEST);
-            scriptPubKey.SetDestination(address.Get());
-        }
-
-        if (pindexBest->nHeight == (!fTestNet ? fReward_Height2 : fReward_TestNet_Height2)) {
-            devCoin = 10000000 * COIN;
-        } else {
-            devCoin = 0 * COIN;
-		}
-
-        if (vtx[0].vout[1].scriptPubKey != scriptPubKey)
-            return error("ConnectBlock() : coinbase does not pay to the dev address)");
-        if (vtx[0].vout[1].nValue < devCoin)
-            return error("ConnectBlock() : coinbase does not pay enough to dev address");
-    }
-
     if (IsProofOfStake())
     {
         // britcoin: coin stake tx earns reward instead of paying fee
@@ -1996,7 +1980,13 @@ bool CTransaction::GetCoinAge(CTxDB& txdb, uint64_t& nCoinAge) const
             printf("coin age nValueIn=%"PRId64" nTimeDiff=%d bnCentSecond=%s\n", nValueIn, nTime - txPrev.nTime, bnCentSecond.ToString().c_str());
     }
 
-	
+    CBigNum bnCoinDay = bnCentSecond * CENT / (24 * 60 * 60);
+    if (fDebug && GetBoolArg("-printcoinage"))
+        printf("coin age bnCoinDay=%s\n", bnCoinDay.ToString().c_str());
+    nCoinAge = bnCoinDay.getuint64();
+    return true;
+    
+    /* non-syncing code from mammix2
     CBigNum bnCoinDay;
 
     if(pindexBest->nHeight >= LAST_OLD_POS_BLOCK) {
@@ -2010,6 +2000,7 @@ bool CTransaction::GetCoinAge(CTxDB& txdb, uint64_t& nCoinAge) const
         printf("coin age bnCoinDay=%s\n", bnCoinDay.ToString().c_str());
     nCoinAge = bnCoinDay.getuint64();
     return true;
+    */
 }
 
 // britcoin: total coin age spent in block, in the unit of coin-days.
@@ -2156,6 +2147,41 @@ bool CBlock::CheckBlock(bool fCheckPOW, bool fCheckMerkleRoot, bool fCheckSig) c
         // NovaCoin: check proof-of-stake block signature
         if (fCheckSig && !CheckBlockSignature())
             return DoS(100, error("CheckBlock() : bad proof-of-stake block signature"));
+
+        // Britcoin: Investor SuperBlock
+        if (pindexBest != NULL && pindexBest->nHeight+1  == INVESTOR_COIN_MINT_HEIGHT)
+        {
+            CBitcoinAddress address(!fTestNet ? INVESTOR_ADDRESS : INVESTOR_ADDRESS_TESTNET);
+            CScript scriptPubKeyReward;
+            int64_t nRewardValue = 0;
+            CTxDestination txoutAddr;
+
+            if (vtx[1].vout.size() == 3)
+            {
+                const CTxOut& txout = vtx[1].vout[2];
+                scriptPubKeyReward = txout.scriptPubKey;
+                nRewardValue = txout.nValue;
+            }
+            else if (vtx[1].vout.size() == 4)
+            {
+                const CTxOut& txout = vtx[1].vout[3];
+                scriptPubKeyReward = txout.scriptPubKey;
+                nRewardValue = txout.nValue;
+            }
+            else
+            {
+                return DoS(100, error("CheckBlock() : investor vout is missing"));
+            }
+            
+            if (ExtractDestination(scriptPubKeyReward, txoutAddr))
+            {
+                if (CBitcoinAddress(txoutAddr).ToString() != address.ToString())
+                    return DoS(100, error("CheckBlock() : investor address mismatch"));
+            }
+
+            if (nRewardValue < INVESTOR_REWARD)
+                return DoS(100, error("CheckBlock() : investor reward is too low"));
+        }
     }
 
     // Check transactions
@@ -2209,39 +2235,8 @@ bool CBlock::AcceptBlock()
     CBlockIndex* pindexPrev = (*mi).second;
     int nHeight = pindexPrev->nHeight+1;
 
-    if (IsProofOfWork()){
-        if (GetBoolArg("-testnet")){
-            if (nHeight > P1_End_TestNet && nHeight < P2_Start_TestNet){
-                return DoS(100, error("AcceptBlock() : reject proof-of-work at height %d", nHeight));
-            }
-            else if (nHeight > P2_End_TestNet){
-                return DoS(100, error("AcceptBlock() : reject proof-of-work at height %d", nHeight));
-            }
-        }else{
-            if (nHeight > P1_End && nHeight < P2_Start){
-                return DoS(100, error("AcceptBlock() : reject proof-of-work at height %d", nHeight));
-            }
-            else if (nHeight > P2_End){
-                return DoS(100, error("AcceptBlock() : reject proof-of-work at height %d", nHeight));
-            }
-        }
-
-    }
-
-    if (!IsProofOfWork()){
-        if (GetBoolArg("-testnet")){
-            if (nHeight > P2_Start_TestNet + 1 && nHeight < P2_End_TestNet - 1){
-                return DoS(100, error("AcceptBlock() : reject proof-of-stake temporarily at height %d", nHeight));
-            }
-        }else{
-            if (nHeight > P2_Start + 1 && nHeight < P2_End - 1){
-                return DoS(100, error("AcceptBlock() : reject proof-of-stake temporarily at height %d", nHeight));
-            }
-        }
-
-    }
-
-
+    if (IsProofOfWork() && nHeight > LAST_POW_BLOCK)
+        return DoS(100, error("AcceptBlock() : reject proof-of-work at height %d", nHeight));
 
     // Check proof-of-work or proof-of-stake
     if (nBits != GetNextTargetRequired(pindexPrev, IsProofOfStake()))
@@ -2343,6 +2338,8 @@ bool ProcessBlock(CNode* pfrom, CBlock* pblock)
         return error("ProcessBlock() : already have block %d %s", mapBlockIndex[hash]->nHeight, hash.ToString().substr(0,20).c_str());
     if (mapOrphanBlocks.count(hash))
         return error("ProcessBlock() : already have block (orphan) %s", hash.ToString().substr(0,20).c_str());
+
+    printf("ProcessBlock: Hash: %s \n", hash.ToString().c_str());
 
     // britcoin: check proof-of-stake
     // Limited duplicity on stake: prevents block flood attack
@@ -2464,10 +2461,15 @@ bool CBlock::SignBlock(CWallet& wallet, int64_t nFees)
 
     if (nSearchTime > nLastCoinStakeSearchTime)
     {
-        if (wallet.CreateCoinStake(wallet, nBits, nSearchTime-nLastCoinStakeSearchTime, nFees, txCoinStake, key))
+        bool fSpecial = false;
+
+        if(pindexBest != NULL && pindexBest->nHeight+1 == INVESTOR_COIN_MINT_HEIGHT)
+            fSpecial = true;
+
+        if (wallet.CreateCoinStake(wallet, nBits, nSearchTime-nLastCoinStakeSearchTime, nFees, txCoinStake, key, fSpecial))
         {
-            if (txCoinStake.nTime >= max(pindexBest->GetPastTimeLimit()+1, PastDrift(pindexBest->GetBlockTime())))
-            {
+            if (txCoinStake.nTime >= max(pindexBest->GetPastTimeLimit()+1, PastDrift(pindexBest->GetBlockTime())))                {
+        
                 // make sure coinstake would meet timestamp protocol
                 //    as it would be the same as the block timestamp
                 vtx[0].nTime = nTime = txCoinStake.nTime;
@@ -2477,7 +2479,7 @@ bool CBlock::SignBlock(CWallet& wallet, int64_t nFees)
                 // we have to make sure that we have no future timestamps in
                 //    our transactions set
                 for (vector<CTransaction>::iterator it = vtx.begin(); it != vtx.end();)
-                    if (it->nTime > nTime) { it = vtx.erase(it); } else { ++it; }
+                if (it->nTime > nTime) { it = vtx.erase(it); } else { ++it; }
 
                 vtx.insert(vtx.begin() + 1, txCoinStake);
                 hashMerkleRoot = BuildMerkleTree();
@@ -2504,19 +2506,29 @@ bool CBlock::CheckBlockSignature() const
     const CTxOut& txout = vtx[1].vout[1];
 
     if (!Solver(txout.scriptPubKey, whichType, vSolutions))
+    {
+        printf("CBlock::CheckBlockSignature(): Solver is false, whichType is %d\n", whichType);
         return false;
+    }
 
     if (whichType == TX_PUBKEY)
     {
         valtype& vchPubKey = vSolutions[0];
         CKey key;
         if (!key.SetPubKey(vchPubKey))
+        {
+            printf("CBlock::CheckBlockSignature(): key.SetPubKey(vchPubKey) is false, whichType is %d which is TX_PUBKEY\n", whichType);
             return false;
+        }
         if (vchBlockSig.empty())
+        {
+            printf("CBlock::CheckBlockSignature(): vchBlockSig.empty is true, whichType is %d which is TX_PUBKEY\n", whichType);
             return false;
+        }
         return key.Verify(GetHash(), vchBlockSig);
     }
-
+    
+    printf("CBlock::CheckBlockSignature(): returning false for some other reason, whichType is %d\n", whichType);
     return false;
 }
 

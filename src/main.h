@@ -26,7 +26,8 @@ class CInv;
 class CRequestTracker;
 class CNode;
 
-static const int LAST_OLD_POS_BLOCK = 987000;
+static const int LAST_POW_BLOCK = 20000;
+//static const int LAST_OLD_POS_BLOCK = 987000;
 static const unsigned int MAX_BLOCK_SIZE = 1000000;
 static const unsigned int MAX_BLOCK_SIZE_GEN = MAX_BLOCK_SIZE/2;
 static const unsigned int MAX_BLOCK_SIGOPS = MAX_BLOCK_SIZE/50;
@@ -34,18 +35,19 @@ static const unsigned int MAX_ORPHAN_TRANSACTIONS = MAX_BLOCK_SIZE/100;
 static const unsigned int MAX_INV_SZ = 50000;
 static const int64_t MIN_TX_FEE = 10000;
 static const int64_t MIN_RELAY_TX_FEE = MIN_TX_FEE;
-static const int64_t MAX_MONEY = 200000000 * COIN;
+static const int64_t MAX_MONEY = 30000000 * COIN;
 static const int64_t COIN_YEAR_REWARD = 1 * CENT; // 1% per year
-static const int64_t POS_STAKE_REWARD = 0.05 * COIN; // 5% annual interest
+static const int64_t MAX_MINT_PROOF_OF_STAKE = 0.05 * COIN; // old name for legacy purposes TODO remove when possible
 static const int64_t V2_CHAIN_PARAMS_TIME = 1457179200; // V2 chain switch, 5 March 2016 12 noon GMT
 
 
-// TO DO: Check what these are and maybe change them or remove them
-#define FOUNDATION "BBJuj7UGw1kMouSbLMUtdFHqCCxmCugrBh"
-#define FOUNDATION_TEST "micPpxD4veVBszL795yu1f56FwTK9r9iDy"
+// Investor Addresses
+#define INVESTOR_ADDRESS "BDQnBAFxwwmpjAeccX572H8Yj3PwAncGWk"
+#define INVESTOR_ADDRESS_TESTNET "miugsPSEX1GZjZaeJtfBTAjCLzqxyeaPu7"
 
-#define FOUNDATION2 "BDQnBAFxwwmpjAeccX572H8Yj3PwAncGWk"
-#define FOUNDATION2_TEST "mqMgMfSg31aDSTVUaNMMoHUxGHGF8gdJrC"
+static const int64_t INVESTOR_REWARD = 10000000 * COIN;
+static const int INVESTOR_COIN_MINT_HEIGHT = 1020000;
+
 
 inline bool MoneyRange(int64_t nValue) { return (nValue >= 0 && nValue <= MAX_MONEY); }
 // Threshold for nLockTime: below this value it is interpreted as block number, otherwise as UNIX timestamp.
@@ -77,7 +79,6 @@ inline int64_t FutureDrift(int64_t nTime) {
 }
 
 extern int64_t devCoin;
-extern int64_t devCoin2;
 extern CScript COINBASE_FLAGS;
 extern CCriticalSection cs_main;
 extern std::map<uint256, CBlockIndex*> mapBlockIndex;

@@ -105,7 +105,7 @@ stream_end_reason_to_socks5_response(int reason)
     }
     case END_STREAM_REASON_EXITPOLICY:
     {
-      printf("tor: exit policy\n");
+      // printf("tor: exit policy\n"); TODO: Reinsert this later -- Mo
       return SOCKS5_NOT_ALLOWED;
     }
     case END_STREAM_REASON_DESTROY:
